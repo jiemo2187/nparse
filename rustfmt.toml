@@ -1,0 +1,5 @@
+
+# https://rust-lang.github.io/rustfmt/?version=v1.6.0&search=import#imports_granularity
+# cargo +nightly fmt
+imports_granularity = 'Item'
+group_imports = 'StdExternalCrate'
