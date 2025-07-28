@@ -8,7 +8,6 @@ use nom::bytes::tag;
 use nom::bytes::take;
 use nom::bytes::take_until;
 use nom::character::complete::crlf;
-use nom::combinator::complete;
 use nom::combinator::map;
 use nom::sequence::delimited;
 use nom::sequence::terminated;
@@ -37,10 +36,10 @@ pub enum RespValue<'a> {
 /// terminated by CRLF (that is "\r\n").
 pub fn simple_string(i: &str) -> IResult<&str, RespValue> {
     map(
-        complete(delimited(tag("+"), take_until(CRLF), crlf)),
+        delimited(tag("+"), take_until(CRLF), crlf),
         RespValue::SimpleString,
     )
-    .parse(i)
+    .parse_complete(i)
 }
 
 #[test]
@@ -59,10 +58,10 @@ fn test_simple_strings() {
 /// and the string that composes the Error type is the error message itself.
 pub fn error(i: &str) -> IResult<&str, RespValue> {
     map(
-        complete(delimited(tag("-"), take_until(CRLF), crlf)),
+        delimited(tag("-"), take_until(CRLF), crlf),
         RespValue::Error,
     )
-    .parse(i)
+    .parse_complete(i)
 }
 
 #[test]
@@ -94,7 +93,7 @@ fn test_errors() {
 pub fn integer(i: &str) -> IResult<&str, RespValue> {
     use nom::character::complete::i64;
 
-    map(complete(delimited(tag(":"), i64, crlf)), RespValue::Integer).parse(i)
+    map(delimited(tag(":"), i64, crlf), RespValue::Integer).parse_complete(i)
 }
 
 #[test]
@@ -124,14 +123,14 @@ fn test_integer() {
 pub fn bulk_string(i: &str) -> IResult<&str, RespValue> {
     use nom::character::complete::isize;
 
-    let (i, len) = complete(delimited(tag("$"), isize, crlf)).parse(i)?;
+    let (i, len) = (delimited(tag("$"), isize, crlf)).parse_complete(i)?;
     if len == -1 {
         Ok((i, RespValue::BulkString(None)))
     } else {
         map(terminated(take(len as usize), crlf), |str| {
             RespValue::BulkString(Some(str))
         })
-        .parse(i)
+        .parse_complete(i)
     }
 }
 
@@ -159,14 +158,15 @@ fn test_bulk_string() {
 pub fn array(i: &str) -> IResult<&str, RespValue> {
     use nom::character::complete::isize;
 
-    let (i, len) = complete(delimited(tag("*"), isize, crlf)).parse(i)?;
+    let (i, len) = delimited(tag("*"), isize, crlf).parse_complete(i)?;
     if len == -1 {
         return Ok((i, RespValue::Array(None)));
     }
     let mut vec = Vec::with_capacity(len as usize);
     let mut rset = i;
     for _ in 0..len {
-        let (i, o) = alt((simple_string, error, integer, bulk_string, array)).parse(rset)?;
+        let (i, o) =
+            alt((simple_string, error, integer, bulk_string, array)).parse_complete(rset)?;
         rset = i;
         vec.push(o);
     }
